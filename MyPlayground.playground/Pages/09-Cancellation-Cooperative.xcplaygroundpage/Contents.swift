@@ -44,8 +44,6 @@ func indexDocumentsCooperative(count: Int) async throws -> Int {
 // MARK: - withTaskCancellationHandler: synchronous cleanup on cancellation
 
 func indexWithCleanup(count: Int) async throws -> Int {
-    var cleanupCalled = false
-
     return try await withTaskCancellationHandler {
         // This block runs the actual work
         var indexed = 0
@@ -57,7 +55,6 @@ func indexWithCleanup(count: Int) async throws -> Int {
     } onCancel: {
         // This closure runs SYNCHRONOUSLY on the cancelling thread when cancel() is called
         // Use it to: invalidate timers, cancel URLSession tasks, close file handles
-        cleanupCalled = true
         print("  → onCancel fired synchronously — releasing resources")
     }
 }
@@ -66,7 +63,9 @@ func indexWithCleanup(count: Int) async throws -> Int {
 
 func documentStream(count: Int) -> AsyncStream<String> {
     AsyncStream { continuation in
-        var resourceOpen = true
+        // nonisolated(unsafe): safe here because onTermination writes once
+        // before the Task loop can observe it, and there's no concurrent mutation.
+        nonisolated(unsafe) var resourceOpen = true
         print("  [stream] resource acquired")
 
         continuation.onTermination = { reason in

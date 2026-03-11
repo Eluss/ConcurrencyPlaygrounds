@@ -62,6 +62,22 @@ func performSearchUnstructured(query: String) async throws -> [SearchResult] {
     return try await [dbTask.value, apiTask.value]
 }
 
+// MARK: - ✅ Unstructured with cancellation: manually bridge via withTaskCancellationHandler
+
+func performSearchUnstructuredCancellable(query: String) async throws -> [SearchResult] {
+    let dbTask  = Task { try await searchDatabase(query) }
+    let apiTask = Task { try await searchAPI(query) }
+
+    return try await withTaskCancellationHandler {
+        return try await [dbTask.value, apiTask.value]
+    } onCancel: {
+        // Runs synchronously when the outer task is cancelled.
+        // Propagates cancellation into the inner tasks — they hit Task.sleep and throw.
+        dbTask.cancel()
+        apiTask.cancel()
+    }
+}
+
 // MARK: - Demo
 
 Task {
@@ -103,6 +119,27 @@ Task {
         print("→ CancellationError")
     }
 
+    try await Task.sleep(for: .milliseconds(600))
+    print("(inner tasks above completed despite cancel)\n\n")
+
+    // ── Unstructured with cancellation support ────────────────────────────────
+    print("=== Unstructured + withTaskCancellationHandler — cancel after 200ms ===\n")
+
+    let cancellableTask = Task { try await performSearchUnstructuredCancellable(query: "q") }
+    try await Task.sleep(for: .milliseconds(200))
+    print("→ cancel() called\n")
+    cancellableTask.cancel()
+
+    do {
+        _ = try await cancellableTask.value
+        print("→ Returned normally")
+    } catch is CancellationError {
+        print("→ CancellationError ✓  (onCancel forwarded cancel to inner tasks)\n")
+    }
+
+    try await Task.sleep(for: .milliseconds(600))
+    print("(silence above = no leaked work)\n")
+
     print("""
 
     Key insights:
@@ -110,11 +147,11 @@ Task {
       task's cancellation flag and waits for the inner task to finish.
     • `try await Task.sleep(...)` IS cancellation-sensitive — it throws immediately.
     • Structured concurrency (async let / TaskGroup) propagates cancellation into
-      children, which hit Task.sleep and unwind quickly.
+      children automatically — they hit Task.sleep and unwind quickly.
     • Unstructured Task { } creates siblings — cancelling the outer task does
       not touch them, and awaiting their .value doesn't respond to cancellation.
-    • The fix isn't \"use try await\" — it's using structured concurrency so
-      cancellation flows through the whole tree automatically.
+    • Fix while keeping Task {}: wrap the awaits in withTaskCancellationHandler
+      and manually cancel inner tasks in onCancel — bridges the gap explicitly.
     """)
 
     PlaygroundPage.current.finishExecution()
