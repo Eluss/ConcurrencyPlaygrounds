@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<playground version='7.0' target-platform='ios' swift-version='6' buildActiveScheme='true' executeOnSourceChanges='true'>
+    <pages>
+        <page name='01-AsyncAwait-SequentialVsParallel'/>
+        <page name='02-StructuredConcurrency-TaskTrees'/>
+        <page name='03-TaskGroup-DynamicConcurrency'/>
+        <page name='04-Actors-Reentrancy'/>
+        <page name='05-MainActor-Isolation'/>
+        <page name='06-Sendable-TypeSystem'/>
+        <page name='07-AsyncSequence-Streams'/>
+        <page name='08-Continuations-BridgingCallbacks'/>
+        <page name='09-Cancellation-Cooperative'/>
+        <page name='10-TaskPriority-Yielding'/>
+    </pages>
+</playground>
